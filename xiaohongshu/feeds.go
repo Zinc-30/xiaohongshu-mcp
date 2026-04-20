@@ -27,7 +27,8 @@ func NewFeedsListAction(page *rod.Page) *FeedsListAction {
 func (f *FeedsListAction) GetFeedsList(ctx context.Context) ([]Feed, error) {
 	page := f.page.Context(ctx)
 
-	time.Sleep(1 * time.Second)
+	// 模拟人类浏览行为
+	simulatePageBrowsing(page)
 
 	result := page.MustEval(`() => {
 		if (window.__INITIAL_STATE__ &&

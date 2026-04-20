@@ -102,7 +102,7 @@ func (f *FeedDetailAction) GetFeedDetailWithConfig(ctx context.Context, feedID, 
 		logrus.Errorf("页面导航失败: %v", err)
 		return nil, err
 	}
-	sleepRandom(1000, 1000)
+	sleepRandom(800, 2000)
 
 	if err := checkPageAccessible(page); err != nil {
 		return nil, err

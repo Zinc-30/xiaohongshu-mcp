@@ -41,9 +41,14 @@ func NewBrowser(headless bool, options ...Option) *headless_browser.Browser {
 		opt(cfg)
 	}
 
+	ua := GenerateUserAgent()
+
 	opts := []headless_browser.Option{
 		headless_browser.WithHeadless(headless),
+		headless_browser.WithUserAgent(ua),
 	}
+	logrus.Infof("浏览器 UA: %s", ua)
+
 	if cfg.binPath != "" {
 		opts = append(opts, headless_browser.WithChromeBinPath(cfg.binPath))
 	}

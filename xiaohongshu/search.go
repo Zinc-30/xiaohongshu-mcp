@@ -174,6 +174,9 @@ func (s *SearchAction) Search(ctx context.Context, keyword string, filters ...Fi
 
 	page.MustWait(`() => window.__INITIAL_STATE__ !== undefined`)
 
+	// 模拟人类浏览行为，降低机器人检测风险
+	simulatePageBrowsing(page)
+
 	// 如果有筛选条件，则应用筛选
 	if len(filters) > 0 {
 		// 将所有 FilterOption 转换为内部筛选选项

@@ -38,19 +38,29 @@ ARCHIVE_NAME="xiaohongshu-mcp-${PLATFORM}.tar.gz"
 
 info "安装 xiaohongshu-mcp (${PLATFORM})..."
 
-# 获取最新 Release 的下载 URL
+# 获取最新 Release 下载 URL
 info "查找最新版本..."
-DOWNLOAD_URL=$(curl -sf "https://api.github.com/repos/${REPO}/releases/latest" \
-    | grep "browser_download_url.*${ARCHIVE_NAME}" \
-    | head -1 \
-    | cut -d '"' -f 4)
+DOWNLOAD_URL=""
+
+if command -v gh &>/dev/null; then
+    # 优先用 gh CLI（已认证，不受 API 限流）
+    DOWNLOAD_URL=$(gh release view --repo "${REPO}" --json assets \
+        --jq ".assets[] | select(.name == \"${ARCHIVE_NAME}\") | .url" 2>/dev/null || echo "")
+fi
 
 if [ -z "$DOWNLOAD_URL" ]; then
-    # 没有 latest release，尝试找最近的任意 release
+    # 回退到 GitHub API
+    DOWNLOAD_URL=$(curl -sf "https://api.github.com/repos/${REPO}/releases/latest" \
+        | grep "browser_download_url.*${ARCHIVE_NAME}" \
+        | head -1 \
+        | cut -d '"' -f 4 || echo "")
+fi
+
+if [ -z "$DOWNLOAD_URL" ]; then
     DOWNLOAD_URL=$(curl -sf "https://api.github.com/repos/${REPO}/releases" \
         | grep "browser_download_url.*${ARCHIVE_NAME}" \
         | head -1 \
-        | cut -d '"' -f 4)
+        | cut -d '"' -f 4 || echo "")
 fi
 
 if [ -z "$DOWNLOAD_URL" ]; then

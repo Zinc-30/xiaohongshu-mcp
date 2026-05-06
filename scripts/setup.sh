@@ -73,6 +73,7 @@ if [ -z "$DOWNLOAD_URL" ]; then
     mkdir -p "$BIN_DIR"
     cd "$PROJECT_DIR"
     go build -o "$BIN_DIR/xiaohongshu-mcp" .
+    go build -o "$BIN_DIR/xiaohongshu-login" ./cmd/login/
     ok "本地编译成功"
     exit 0
 fi

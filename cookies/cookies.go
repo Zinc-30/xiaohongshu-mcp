@@ -18,9 +18,6 @@ type sessionFile struct {
 	Cookies json.RawMessage `json:"cookies"`
 }
 
-// localCookiesPath 当前目录下的默认文件名。
-const localCookiesPath = "cookies.json"
-
 type Cookier interface {
 	LoadCookies() ([]byte, error)
 	SaveCookies(data []byte) error
@@ -125,24 +122,21 @@ func (c *localCookie) DeleteCookies() error {
 }
 
 // GetCookiesFilePath 获取 cookies 文件路径。
-// 为了向后兼容，如果旧路径 /tmp/cookies.json 存在，则继续使用；
-// 否则使用当前目录下的 cookies.json
+// 优先级：$COOKIES_PATH 环境变量 > ~/.xiaohongshu-mcp/cookies.json
 func GetCookiesFilePath() string {
-	// 显式指定优先，无条件——环境里的残留文件不能盖掉用户明说的配置
+	// 环境变量优先（Docker/自定义场景）
 	if path := os.Getenv("COOKIES_PATH"); path != "" {
 		return path
 	}
 
-	// 本地目录
-	if _, err := os.Stat(localCookiesPath); err == nil {
-		return localCookiesPath
+	// 默认路径：~/.xiaohongshu-mcp/cookies.json
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "cookies.json"
 	}
 
-	// 旧路径 /tmp/cookies.json，仅为老用户兜底
-	oldPath := filepath.Join(os.TempDir(), "cookies.json")
-	if _, err := os.Stat(oldPath); err == nil {
-		return oldPath
-	}
+	cookieDir := filepath.Join(homeDir, ".xiaohongshu-mcp")
+	_ = os.MkdirAll(cookieDir, 0700)
 
-	return localCookiesPath
+	return filepath.Join(cookieDir, "cookies.json")
 }

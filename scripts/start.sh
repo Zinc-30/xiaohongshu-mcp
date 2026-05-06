@@ -11,6 +11,4 @@ if [ ! -f "$BIN_PATH" ]; then
     bash "$SCRIPT_DIR/setup.sh" >&2
 fi
 
-export COOKIES_PATH="${COOKIES_PATH:-$PROJECT_DIR/cookies.json}"
-
 exec "$BIN_PATH" -headless=true -stdio

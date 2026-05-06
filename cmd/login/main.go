@@ -15,9 +15,19 @@ import (
 func main() {
 	var (
 		binPath string // 浏览器二进制文件路径
+		force   bool   // 强制重新登录
 	)
 	flag.StringVar(&binPath, "bin", "", "浏览器二进制文件路径")
+	flag.BoolVar(&force, "force", false, "强制重新登录（忽略当前登录状态，删除旧 cookie）")
 	flag.Parse()
+
+	// 强制模式下先删除旧 cookie，避免浏览器加载旧登录态
+	if force {
+		cookiePath := cookies.GetCookiesFilePath()
+		cookieLoader := cookies.NewLoadCookie(cookiePath)
+		_ = cookieLoader.DeleteCookies()
+		logrus.Infof("已删除旧 cookie: %s", cookiePath)
+	}
 
 	// 登录的时候，需要界面，所以不能无头模式
 	b := browser.NewBrowser(false, browser.WithBinPath(binPath))
@@ -28,20 +38,22 @@ func main() {
 
 	action := xiaohongshu.NewLogin(page)
 
-	status, err := action.CheckLoginStatus(context.Background())
-	if err != nil {
-		logrus.Fatalf("failed to check login status: %v", err)
-	}
+	if !force {
+		status, err := action.CheckLoginStatus(context.Background())
+		if err != nil {
+			logrus.Fatalf("failed to check login status: %v", err)
+		}
 
-	logrus.Infof("当前登录状态: %v", status)
+		logrus.Infof("当前登录状态: %v", status)
 
-	if status {
-		return
+		if status {
+			return
+		}
 	}
 
 	// 开始登录流程
 	logrus.Info("开始登录流程...")
-	if err = action.Login(context.Background()); err != nil {
+	if err := action.Login(context.Background()); err != nil {
 		logrus.Fatalf("登录失败: %v", err)
 	} else {
 		if err := saveCookies(page); err != nil {
@@ -50,7 +62,7 @@ func main() {
 	}
 
 	// 再次检查登录状态确认成功
-	status, err = action.CheckLoginStatus(context.Background())
+	status, err := action.CheckLoginStatus(context.Background())
 	if err != nil {
 		logrus.Fatalf("failed to check login status after login: %v", err)
 	}

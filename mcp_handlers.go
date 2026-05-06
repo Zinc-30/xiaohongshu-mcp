@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -59,7 +63,7 @@ func (s *AppServer) handleCheckLoginStatus(ctx context.Context) *MCPToolResult {
 }
 
 // handleGetLoginQrcode 处理获取登录二维码请求。
-// 返回二维码图片的 Base64 编码和超时时间，供前端展示扫码登录。
+// 返回二维码图片的 Base64 编码和超时时间，同时在本地浏览器中打开二维码页面。
 func (s *AppServer) handleGetLoginQrcode(ctx context.Context) *MCPToolResult {
 	logrus.Info("MCP: 获取登录扫码图片")
 
@@ -86,9 +90,17 @@ func (s *AppServer) handleGetLoginQrcode(ctx context.Context) *MCPToolResult {
 		return now.Add(d).Format("2006-01-02 15:04:05")
 	}()
 
-	// 已登录：文本 + 图片
+	// 将二维码写入临时 HTML 并自动打开浏览器
+	qrcodeFilePath := openQrcodeInBrowser(result.Img, deadline)
+
+	// 返回 MCP 内容（文本 + 图片）
+	textHint := "请用小红书 App 在 " + deadline + " 前扫码登录 👇"
+	if qrcodeFilePath != "" {
+		textHint += "\n\n二维码已在浏览器中打开: " + qrcodeFilePath
+	}
+
 	contents := []MCPContent{
-		{Type: "text", Text: "请用小红书 App 在 " + deadline + " 前扫码登录 👇"},
+		{Type: "text", Text: textHint},
 		{
 			Type:     "image",
 			MimeType: "image/png",
@@ -96,6 +108,60 @@ func (s *AppServer) handleGetLoginQrcode(ctx context.Context) *MCPToolResult {
 		},
 	}
 	return &MCPToolResult{Content: contents}
+}
+
+// openQrcodeInBrowser 将二维码 base64 图片写入临时 HTML 文件并用系统浏览器打开
+func openQrcodeInBrowser(imgData string, deadline string) string {
+	htmlContent := fmt.Sprintf(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>小红书扫码登录</title>
+<style>
+  body { font-family: -apple-system, sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f5f5f5; }
+  .card { background: white; border-radius: 16px; padding: 40px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); text-align: center; }
+  h2 { color: #ff2442; margin-bottom: 8px; }
+  p { color: #666; margin-bottom: 24px; }
+  img { width: 240px; height: 240px; border-radius: 8px; }
+  .deadline { font-size: 14px; color: #999; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h2>小红书扫码登录</h2>
+  <p>请用小红书 App 扫描下方二维码</p>
+  <img src="%s" alt="登录二维码" />
+  <p class="deadline">请在 %s 前完成扫码</p>
+</div>
+</body>
+</html>`, imgData, deadline)
+
+	tmpDir := os.TempDir()
+	htmlPath := filepath.Join(tmpDir, "xhs-login-qrcode.html")
+
+	if err := os.WriteFile(htmlPath, []byte(htmlContent), 0644); err != nil {
+		logrus.Warnf("写入二维码 HTML 失败: %v", err)
+		return ""
+	}
+
+	// 根据系统调用浏览器打开
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", htmlPath)
+	case "linux":
+		cmd = exec.Command("xdg-open", htmlPath)
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", htmlPath)
+	default:
+		logrus.Warn("不支持的操作系统，无法自动打开二维码")
+		return htmlPath
+	}
+
+	if err := cmd.Start(); err != nil {
+		logrus.Warnf("打开浏览器失败: %v", err)
+	}
+	return htmlPath
 }
 
 // handleDeleteCookies 处理删除 cookies 请求，用于登录重置

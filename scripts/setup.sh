@@ -64,6 +64,17 @@ if [ -z "$DOWNLOAD_URL" ]; then
 fi
 
 if [ -z "$DOWNLOAD_URL" ]; then
+    # 回退：GitHub API 被限流(403)时，用 github.com 的 releases/latest 重定向拿 tag，
+    # 直接拼直链下载地址，完全绕开 api.github.com
+    LATEST_TAG="$(curl -sIL "https://github.com/${REPO}/releases/latest" 2>/dev/null \
+        | grep -i '^location:' | tail -1 \
+        | sed -E 's#.*releases/tag/##' | tr -d '\r\n')"
+    if [ -n "$LATEST_TAG" ]; then
+        DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${LATEST_TAG}/${ARCHIVE_NAME}"
+    fi
+fi
+
+if [ -z "$DOWNLOAD_URL" ]; then
     warn "未找到预编译二进制，尝试本地编译..."
     if ! command -v go &>/dev/null; then
         fail "未找到预编译二进制且 Go 未安装"
